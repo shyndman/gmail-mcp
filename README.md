@@ -41,6 +41,17 @@ npm start
 ```
 
 The HTTP listener binds only to `127.0.0.1`. The default advertised URL is `http://localhost:3000`. Change the port with `PORT=3001`.
+
+The server defaults to read-only mode on both transports. It exposes 13 read tools and requests only `gmail.readonly`.
+Add the single `--destructive` flag to enable all 36 tools, including sending, forwarding, draft changes, and deletion:
+
+```bash
+npm start -- --destructive
+npm run start:http -- --destructive
+node dist/main.js --destructive
+```
+
+The flag does not change existing token permissions. Disabled tools remain unavailable even when the token allows writes.
 Use `MCP_BASE_URL` to advertise an HTTPS reverse proxy. The listener still binds only to loopback.
 
 ### 3. Add to your MCP client
@@ -71,55 +82,56 @@ Authorization transactions and local codes expire after ten minutes. The client 
 
 | Tool | Description |
 |------|-------------|
-| `gmail_get_profile` | Get user's email address and profile info |
+| `get_profile` | Get the account email address and profile |
 | **Messages** | |
-| `gmail_messages_list` | Search/list messages (consider `gmail_threads_list` instead) |
-| `gmail_message_get` | Get a single message |
-| `gmail_message_send` | Send an email |
-| `gmail_message_forward` | Forward an email to new recipients |
-| `gmail_message_modify` | Add/remove labels |
-| `gmail_message_archive` | Archive (remove from inbox) |
-| `gmail_message_trash` | Move to trash |
-| `gmail_message_untrash` | Restore from trash |
-| `gmail_message_delete` | Permanently delete |
-| `gmail_messages_batch_modify` | Bulk label changes |
-| `gmail_messages_batch_delete` | Bulk permanent delete |
+| `messages_list` | Search or list messages |
+| `message_get` | Get a message |
+| `message_send` | Send an email |
+| `message_forward` | Forward an email |
+| `message_modify` | Add or remove labels |
+| `message_archive` | Remove a message from the inbox |
+| `message_trash` | Move a message to trash |
+| `message_untrash` | Restore a message from trash |
+| `message_delete` | Permanently delete a message |
+| `messages_batch_modify` | Change labels on multiple messages |
+| `messages_batch_delete` | Permanently delete multiple messages |
 | **Threads** | |
-| `gmail_threads_list` | Search/list threads (recommended) |
-| `gmail_thread_get` | Get all messages in a thread (recommended) |
-| `gmail_thread_modify` | Add/remove labels |
-| `gmail_thread_trash` | Move to trash |
-| `gmail_thread_untrash` | Restore from trash |
-| `gmail_thread_delete` | Permanently delete |
+| `threads_list` | Search or list threads |
+| `thread_get` | Get all messages in a thread |
+| `thread_modify` | Add or remove labels |
+| `thread_trash` | Move a thread to trash |
+| `thread_untrash` | Restore a thread from trash |
+| `thread_delete` | Permanently delete a thread |
 | **Drafts** | |
-| `gmail_drafts_list` | List drafts |
-| `gmail_draft_get` | Get a draft |
-| `gmail_draft_create` | Create a draft |
-| `gmail_draft_update` | Update a draft |
-| `gmail_draft_send` | Send a draft |
-| `gmail_draft_delete` | Delete a draft |
+| `drafts_list` | List drafts |
+| `draft_get` | Get a draft |
+| `draft_create` | Create a draft |
+| `draft_update` | Change a draft |
+| `draft_send` | Send a draft |
+| `draft_delete` | Delete a draft |
 | **Labels** | |
-| `gmail_labels_list` | List all labels |
-| `gmail_label_get` | Get a label |
-| `gmail_label_create` | Create a label |
-| `gmail_label_update` | Update a label |
-| `gmail_label_delete` | Delete a label |
+| `labels_list` | List labels |
+| `label_get` | Get a label |
+| `label_create` | Create a label |
+| `label_update` | Change a label |
+| `label_delete` | Delete a label |
 | **Attachments** | |
-| `gmail_attachment_get` | Download attachment |
+| `attachment_get` | Download an attachment |
 | **Filters** | |
-| `gmail_filters_list` | List email filters |
-| `gmail_filter_get` | Get a filter |
-| `gmail_filter_create` | Create a filter |
-| `gmail_filter_delete` | Delete a filter |
+| `filters_list` | List filters |
+| `filter_get` | Get a filter |
+| `filter_create` | Create a filter |
+| `filter_delete` | Delete a filter |
 | **Settings** | |
-| `gmail_vacation_get` | Get vacation auto-reply settings |
-| `gmail_vacation_set` | Set vacation auto-reply settings |
+| `vacation_get` | Get vacation settings |
+| `vacation_set` | Change vacation settings |
+
+Harnesses add tool prefixes. This server does not add them.
 
 ## Gmail API Scopes
 
-- `gmail.readonly` - Read messages and labels
-- `gmail.send` - Send messages
-- `gmail.modify` - Modify messages (archive, labels, trash)
+- Default: `gmail.readonly` for read tools.
+- With `--destructive`: `gmail.readonly`, `gmail.send`, and `gmail.modify`.
 
 ## Contributing
 

@@ -56,12 +56,24 @@ import {registerVacationSet} from './vacation-set.js';
 export type {Config} from './types.js';
 
 export function registerAll(server: McpServer, config: Config): void {
-	// Profile
 	registerProfileGet(server, config);
-
-	// Messages
 	registerMessagesList(server, config);
 	registerMessageGet(server, config);
+	registerThreadsList(server, config);
+	registerThreadGet(server, config);
+	registerDraftsList(server, config);
+	registerDraftGet(server, config);
+	registerLabelsList(server, config);
+	registerLabelGet(server, config);
+	registerAttachmentGet(server, config);
+	registerFiltersList(server, config);
+	registerFilterGet(server, config);
+	registerVacationGet(server, config);
+
+	if (!config.destructive) {
+		return;
+	}
+
 	registerMessageSend(server, config);
 	registerMessageForward(server, config);
 	registerMessageModify(server, config);
@@ -71,40 +83,18 @@ export function registerAll(server: McpServer, config: Config): void {
 	registerMessageDelete(server, config);
 	registerMessagesBatchModify(server, config);
 	registerMessagesBatchDelete(server, config);
-
-	// Threads
-	registerThreadGet(server, config);
-	registerThreadsList(server, config);
 	registerThreadModify(server, config);
 	registerThreadTrash(server, config);
 	registerThreadUntrash(server, config);
 	registerThreadDelete(server, config);
-
-	// Drafts
 	registerDraftCreate(server, config);
-	registerDraftGet(server, config);
-	registerDraftsList(server, config);
 	registerDraftUpdate(server, config);
-	registerDraftDelete(server, config);
 	registerDraftSend(server, config);
-
-	// Labels
-	registerLabelsList(server, config);
-	registerLabelGet(server, config);
+	registerDraftDelete(server, config);
 	registerLabelCreate(server, config);
 	registerLabelUpdate(server, config);
 	registerLabelDelete(server, config);
-
-	// Attachments
-	registerAttachmentGet(server, config);
-
-	// Filters
-	registerFiltersList(server, config);
-	registerFilterGet(server, config);
 	registerFilterCreate(server, config);
 	registerFilterDelete(server, config);
-
-	// Vacation
-	registerVacationGet(server, config);
 	registerVacationSet(server, config);
 }

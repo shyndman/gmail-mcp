@@ -30,7 +30,7 @@ describe('draft_update', () => {
 				handler = h;
 			}),
 		} as unknown as McpServer;
-		registerDraftUpdate(server, {token: 'test-token'});
+		registerDraftUpdate(server, {token: 'test-token', destructive: true});
 
 		// Default: the draft currently lives in thread-abc, and the update succeeds.
 		apiCall.mockImplementation(async (method) => (method === 'GET'

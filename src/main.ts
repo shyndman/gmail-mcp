@@ -4,13 +4,15 @@ import {StreamableHTTPServerTransport} from '@modelcontextprotocol/sdk/server/st
 import type {Transport} from '@modelcontextprotocol/sdk/shared/transport.js';
 import express, {type Request, type Response} from 'express';
 import {createServer} from './index.js';
+import {parseArgs} from 'node:util';
 import {isTokenValid} from './utils/token-cache.js';
 import {registerOAuthRoutes} from './utils/oauth.js';
 
 // Google OAuth configuration - users must provide their own credentials
 const {GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET} = process.env;
 
-const GMAIL_SCOPES = [
+const READ_ONLY_SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
+const DESTRUCTIVE_SCOPES = [
 	'https://www.googleapis.com/auth/gmail.readonly',
 	'https://www.googleapis.com/auth/gmail.send',
 	'https://www.googleapis.com/auth/gmail.modify',
@@ -40,6 +42,22 @@ function extractBearerToken(req: Request): string | undefined {
 const transport = process.env.MCP_TRANSPORT || 'stdio';
 
 (async () => {
+	let destructive: boolean;
+	try {
+		const {values} = parseArgs({
+			args: process.argv.slice(2),
+			options: {destructive: {type: 'boolean', default: false}},
+			strict: true,
+			allowPositionals: false,
+		});
+		destructive = values.destructive;
+	} catch (error) {
+		console.error('gmail-mcp: Invalid CLI arguments:', (error as Error).message);
+		process.exit(1);
+	}
+
+	const scopes = destructive ? DESTRUCTIVE_SCOPES : READ_ONLY_SCOPES;
+	console.error(destructive ? 'gmail-mcp: destructive mode' : 'gmail-mcp: read-only mode');
 	if (transport === 'stdio') {
 		const accessToken = process.env.GOOGLE_ACCESS_TOKEN;
 		if (!accessToken) {
@@ -49,7 +67,7 @@ const transport = process.env.MCP_TRANSPORT || 'stdio';
 			process.exit(1);
 		}
 
-		const server = createServer({token: accessToken});
+		const server = createServer({token: accessToken, destructive});
 		setupSignalHandlers(async () => server.close());
 
 		const stdioTransport = new StdioServerTransport();
@@ -73,7 +91,7 @@ const transport = process.env.MCP_TRANSPORT || 'stdio';
 			baseUrl,
 			googleClientId: GOOGLE_CLIENT_ID,
 			googleClientSecret: GOOGLE_CLIENT_SECRET,
-			scopes: GMAIL_SCOPES,
+			scopes,
 		});
 
 		// Stateless MCP endpoint
@@ -101,7 +119,7 @@ const transport = process.env.MCP_TRANSPORT || 'stdio';
 				return;
 			}
 
-			const server = createServer({token: token ?? ''});
+			const server = createServer({token: token ?? '', destructive});
 
 			try {
 				const httpTransport = new StreamableHTTPServerTransport({
