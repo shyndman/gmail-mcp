@@ -15,6 +15,7 @@ const GMAIL_SCOPES = [
 	'https://www.googleapis.com/auth/gmail.send',
 	'https://www.googleapis.com/auth/gmail.modify',
 ];
+const HTTP_LISTEN_HOST = '127.0.0.1';
 
 function setupSignalHandlers(cleanup: () => Promise<void>): void {
 	process.on('SIGINT', async () => {
@@ -127,7 +128,7 @@ const transport = process.env.MCP_TRANSPORT || 'stdio';
 			}
 		});
 
-		const httpServer = app.listen(port, () => {
+		const httpServer = app.listen(port, HTTP_LISTEN_HOST, () => {
 			console.error(`Gmail MCP server running on ${baseUrl}/mcp`);
 		});
 

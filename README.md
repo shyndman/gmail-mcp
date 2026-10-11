@@ -40,7 +40,8 @@ MCP_TRANSPORT=http \
 npm start
 ```
 
-The server runs on `http://localhost:3000` by default. Change with `PORT=3001`.
+The HTTP listener binds only to `127.0.0.1`. The default advertised URL is `http://localhost:3000`. Change the port with `PORT=3001`.
+Use `MCP_BASE_URL` to advertise an HTTPS reverse proxy. The listener still binds only to loopback.
 
 ### 3. Add to your MCP client
 
