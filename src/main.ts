@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import {StdioServerTransport} from '@modelcontextprotocol/sdk/server/stdio.js';
 import {StreamableHTTPServerTransport} from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import type {Transport} from '@modelcontextprotocol/sdk/shared/transport.js';
 import express, {type Request, type Response} from 'express';
 import {createServer} from './index.js';
 import type {
@@ -227,11 +228,10 @@ const transport = process.env.MCP_TRANSPORT || 'stdio';
 
 			try {
 				const httpTransport = new StreamableHTTPServerTransport({
-
-					sessionIdGenerator: undefined,
 					enableJsonResponse: true,
 				});
-				await server.connect(httpTransport);
+				// The SDK declares this class as Transport but widens its optional callback getters.
+				await server.connect(httpTransport as Transport);
 
 				await httpTransport.handleRequest(req, res, req.body);
 
