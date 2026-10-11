@@ -55,14 +55,16 @@ graph LR
     A[MCP client] <--> B[gmail-mcp] <--> C[Google OAuth/API]
 ```
 
-1. Server advertises itself as an OAuth authorization server via `/.well-known/oauth-authorization-server`
-2. `/register` returns the Google OAuth client credentials
-3. `/authorize` redirects to Google, encoding the client's callback URL in state
-4. `/callback` receives the code from Google and forwards to the client's callback
-5. `/token` proxies token requests to Google, injecting client credentials
-6. `/mcp` handles MCP requests, using the bearer token to call Gmail API
+1. The server advertises OAuth metadata at `/.well-known/oauth-authorization-server`.
+2. `/register` creates a public client with exact registered callback URLs. It does not expose Google credentials.
+3. `/authorize` requires S256 Proof Key for Code Exchange (PKCE) and creates an opaque, browser-bound transaction.
+4. `/callback` checks that transaction and issues a one-use local code to the registered callback.
+5. `/token` checks the client, callback, and verifier before it exchanges the stored Google code.
+6. `/mcp` uses the bearer token to call the Gmail API.
 
-The server holds no tokens or state - it just proxies OAuth to Google.
+Callback URLs must use HTTPS or loopback HTTP (`localhost`, `127.0.0.1`, or `[::1]`).
+Registrations and pending transactions remain in memory. A restart requires registration and authorization again.
+Authorization transactions and local codes expire after ten minutes. The client keeps the Google access and refresh tokens.
 
 ## Tools
 
