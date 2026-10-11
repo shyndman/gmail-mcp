@@ -29,7 +29,7 @@ export function registerMessageDelete(server: McpServer, config: Config): void {
 			},
 		},
 		async ({messageId}) => {
-			await makeGmailApiCall('DELETE', `/users/me/messages/${messageId}`, config.token);
+			await makeGmailApiCall('DELETE', `/users/me/messages/${messageId}`, await config.getAccessToken());
 			return jsonResult({success: true as const, messageId});
 		},
 	);

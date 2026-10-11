@@ -47,7 +47,7 @@ export function registerThreadGet(server: McpServer, config: Config): void {
 				}
 			}
 
-			const result = await makeGmailApiCall('GET', `/users/me/threads/${id}?${params.toString()}`, config.token);
+			const result = await makeGmailApiCall('GET', `/users/me/threads/${id}?${params.toString()}`, await config.getAccessToken());
 			return jsonResult(outputSchema.parse(result));
 		},
 	);

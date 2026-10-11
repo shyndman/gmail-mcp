@@ -31,7 +31,7 @@ export function registerThreadModify(server: McpServer, config: Config): void {
 			},
 		},
 		async ({threadId, addLabelIds, removeLabelIds}) => {
-			const result = await makeGmailApiCall('POST', `/users/me/threads/${threadId}/modify`, config.token, {
+			const result = await makeGmailApiCall('POST', `/users/me/threads/${threadId}/modify`, await config.getAccessToken(), {
 				addLabelIds,
 				removeLabelIds,
 			});

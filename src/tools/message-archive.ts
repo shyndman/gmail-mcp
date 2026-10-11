@@ -30,7 +30,7 @@ export function registerMessageArchive(server: McpServer, config: Config): void 
 			},
 		},
 		async ({id}) => {
-			const result = await makeGmailApiCall('POST', `/users/me/messages/${id}/modify`, config.token, {
+			const result = await makeGmailApiCall('POST', `/users/me/messages/${id}/modify`, await config.getAccessToken(), {
 				removeLabelIds: ['INBOX'],
 			});
 			return jsonResult(outputSchema.parse(result));

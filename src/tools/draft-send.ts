@@ -31,7 +31,7 @@ export function registerDraftSend(server: McpServer, config: Config): void {
 			},
 		},
 		async ({draftId}) => {
-			const result = await makeGmailApiCall('POST', '/users/me/drafts/send', config.token, {
+			const result = await makeGmailApiCall('POST', '/users/me/drafts/send', await config.getAccessToken(), {
 				id: draftId,
 			});
 			return jsonResult(outputSchema.parse(result));

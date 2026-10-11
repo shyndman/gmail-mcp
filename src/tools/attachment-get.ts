@@ -28,7 +28,7 @@ export function registerAttachmentGet(server: McpServer, config: Config): void {
 			},
 		},
 		async ({messageId, attachmentId}) => {
-			const result = await makeGmailApiCall('GET', `/users/me/messages/${messageId}/attachments/${attachmentId}`, config.token);
+			const result = await makeGmailApiCall('GET', `/users/me/messages/${messageId}/attachments/${attachmentId}`, await config.getAccessToken());
 			return jsonResult(outputSchema.parse(result));
 		},
 	);

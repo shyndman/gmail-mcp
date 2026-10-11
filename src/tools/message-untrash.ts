@@ -30,7 +30,7 @@ export function registerMessageUntrash(server: McpServer, config: Config): void 
 			},
 		},
 		async ({messageId}) => {
-			const result = await makeGmailApiCall('POST', `/users/me/messages/${messageId}/untrash`, config.token);
+			const result = await makeGmailApiCall('POST', `/users/me/messages/${messageId}/untrash`, await config.getAccessToken());
 			return jsonResult(outputSchema.parse(result));
 		},
 	);

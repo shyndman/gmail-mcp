@@ -36,7 +36,7 @@ export function registerLabelsList(server: McpServer, config: Config): void {
 			},
 		},
 		async () => {
-			const result = await makeGmailApiCall('GET', '/users/me/labels', config.token);
+			const result = await makeGmailApiCall('GET', '/users/me/labels', await config.getAccessToken());
 			return jsonResult(outputSchema.parse(result));
 		},
 	);

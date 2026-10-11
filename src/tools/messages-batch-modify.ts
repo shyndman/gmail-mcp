@@ -31,7 +31,7 @@ export function registerMessagesBatchModify(server: McpServer, config: Config): 
 			},
 		},
 		async ({messageIds, addLabelIds, removeLabelIds}) => {
-			await makeGmailApiCall('POST', '/users/me/messages/batchModify', config.token, {
+			await makeGmailApiCall('POST', '/users/me/messages/batchModify', await config.getAccessToken(), {
 				ids: messageIds,
 				addLabelIds,
 				removeLabelIds,

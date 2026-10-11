@@ -31,36 +31,65 @@ MCP server for Gmail - read, send, archive, and manage emails.
 7. Add `http://localhost:3000/callback` to **Authorized redirect URIs**
 8. Note your Client ID and Client Secret
 
-### 2. Run the server
+### 2. Configure a stdio client
+
+Use Node.js 22 or later. Install dependencies with `npm ci`, then build with `npm run build`.
+The MCP client starts this server. Supply `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` through its environment.
+The server does not load `.env` files itself.
+
+For OMP, put the credentials in `~/.omp/agent/.env`. OMP loads that file and passes its environment to stdio servers.
+Add this entry to `~/.omp/agent/mcp.json`, with the absolute path to your checkout:
+
+```json
+{
+  "mcpServers": {
+    "gmail": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["/absolute/path/to/gmail-mcp/dist/main.js"],
+      "env": {"MCP_TRANSPORT": "stdio"}
+    }
+  }
+}
+```
+
+On first use, the server opens the browser and a temporary OAuth callback listener on `127.0.0.1:3000`.
+The callback URL is `http://localhost:3000/callback`. `PORT` changes the callback port and must match the Google registration.
+MCP initialization and tool discovery do not wait for login. Until login completes, tool calls return an authorization-pending error.
+If the browser does not open, use the authorization URL from the server's stderr output.
+The callback listener closes after authorization, failure, or the ten-minute timeout.
+If authorization fails, fix the reported cause and restart the server through your MCP client.
+Shutdown and the login timeout also abort pending Google token requests.
+
+The server saves only the refresh token under `$XDG_DATA_HOME/gmail-mcp/oauth`, or `~/.local/share/gmail-mcp/oauth` by default.
+The directory uses permissions `0700`, and each credential file uses `0600`.
+Each Google client and scope set has a separate file. The cache works across projects.
+On restart, the server uses the saved refresh token without opening the browser or callback listener.
+It refreshes expired access tokens before Gmail requests. A revoked refresh token starts a new browser login.
+
+The server defaults to read-only mode and exposes 13 read tools.
+Add `--destructive` to the client's `args` to enable all 36 tools, including every send and write operation.
+That mode requests `gmail.readonly`, `gmail.send`, and `gmail.modify`, and has a separate credential cache.
+
+### 3. HTTP transport
+
+HTTP remains available when you manage the server process separately:
 
 ```bash
 GOOGLE_CLIENT_ID='your-client-id' \
 GOOGLE_CLIENT_SECRET='your-client-secret' \
 MCP_TRANSPORT=http \
-npm start
+node dist/main.js
 ```
 
-The HTTP listener binds only to `127.0.0.1`. The default advertised URL is `http://localhost:3000`. Change the port with `PORT=3001`.
-
-The server defaults to read-only mode on both transports. It exposes 13 read tools and requests only `gmail.readonly`.
-Add the single `--destructive` flag to enable all 36 tools, including sending, forwarding, draft changes, and deletion:
-
-```bash
-npm start -- --destructive
-npm run start:http -- --destructive
-node dist/main.js --destructive
-```
-
-The flag does not change existing token permissions. Disabled tools remain unavailable even when the token allows writes.
-Use `MCP_BASE_URL` to advertise an HTTPS reverse proxy. The listener still binds only to loopback.
-
-### 3. Add to your MCP client
-
-With the server running, follow the instructions on [install-mcp](https://adamjones.me/install-mcp/?url=http://localhost:3000/mcp), which generates the right config for your MCP client (Claude Code, Claude Desktop, Cursor, Cline, VS Code, and more).
+The HTTP listener binds only to `127.0.0.1`. Its default advertised URL is `http://localhost:3000/mcp`.
+`PORT` changes its port. `MCP_BASE_URL` sets the advertised base URL for an HTTPS reverse proxy.
+The listener still binds only to loopback.
+Add `--destructive` to enable write tools. Disabled tools remain unavailable even with a broad existing token.
 
 ## Architecture
 
-This server acts as an **OAuth proxy** to Google:
+With stdio, this server owns browser authorization and refresh credentials. With HTTP, it acts as an OAuth proxy:
 
 ```mermaid
 graph LR

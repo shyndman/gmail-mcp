@@ -29,7 +29,7 @@ export function registerThreadDelete(server: McpServer, config: Config): void {
 			},
 		},
 		async ({threadId}) => {
-			await makeGmailApiCall('DELETE', `/users/me/threads/${threadId}`, config.token);
+			await makeGmailApiCall('DELETE', `/users/me/threads/${threadId}`, await config.getAccessToken());
 			return jsonResult({success: true as const, threadId});
 		},
 	);

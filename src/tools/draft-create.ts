@@ -110,7 +110,7 @@ export function registerDraftCreate(server: McpServer, config: Config): void {
 				requestBody.message.threadId = threadId;
 			}
 
-			const result = await makeGmailApiCall('POST', '/users/me/drafts', config.token, requestBody);
+			const result = await makeGmailApiCall('POST', '/users/me/drafts', await config.getAccessToken(), requestBody);
 			return jsonResult(outputSchema.parse(result));
 		},
 	);

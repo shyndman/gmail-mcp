@@ -29,7 +29,7 @@ export function registerMessagesBatchDelete(server: McpServer, config: Config): 
 			},
 		},
 		async ({messageIds}) => {
-			await makeGmailApiCall('POST', '/users/me/messages/batchDelete', config.token, {
+			await makeGmailApiCall('POST', '/users/me/messages/batchDelete', await config.getAccessToken(), {
 				ids: messageIds,
 			});
 			return jsonResult({success: true as const, deletedCount: messageIds.length});

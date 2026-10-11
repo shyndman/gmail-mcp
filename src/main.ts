@@ -7,6 +7,9 @@ import {createServer} from './index.js';
 import {parseArgs} from 'node:util';
 import {isTokenValid} from './utils/token-cache.js';
 import {registerOAuthRoutes} from './utils/oauth.js';
+import {OAuth2Client} from 'google-auth-library';
+import open from 'open';
+import {StdioOAuth, getStdioCredentialsPath} from './utils/stdio-oauth.js';
 
 // Google OAuth configuration - users must provide their own credentials
 const {GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET} = process.env;
@@ -18,6 +21,7 @@ const DESTRUCTIVE_SCOPES = [
 	'https://www.googleapis.com/auth/gmail.modify',
 ];
 const HTTP_LISTEN_HOST = '127.0.0.1';
+const DEFAULT_PORT = 3000;
 
 function setupSignalHandlers(cleanup: () => Promise<void>): void {
 	process.on('SIGINT', async () => {
@@ -39,6 +43,46 @@ function extractBearerToken(req: Request): string | undefined {
 	return authHeader.slice(7);
 }
 
+async function startStdioServer(
+	clientId: string,
+	clientSecret: string,
+	scopes: string[],
+	destructive: boolean,
+): Promise<void> {
+	const callbackPort = Number(process.env.PORT || DEFAULT_PORT);
+	const client = new OAuth2Client({
+		clientId,
+		clientSecret,
+		redirectUri: `http://localhost:${callbackPort}/callback`,
+	});
+	const auth = new StdioOAuth({
+		client,
+		callbackPort,
+		scopes,
+		credentialsPath: getStdioCredentialsPath(clientId, scopes),
+		async openBrowser(url) {
+			await open(url);
+		},
+	});
+	const server = createServer({getAccessToken: async () => auth.getAccessToken(), destructive});
+	const cleanup = async (): Promise<void> => {
+		await auth.close();
+		await server.close();
+	};
+
+	setupSignalHandlers(cleanup);
+	process.stdin.once('end', () => {
+		void cleanup().catch(() => {
+			console.error('gmail-mcp: Failed to close the stdio server');
+		});
+	});
+	await server.connect(new StdioServerTransport());
+	console.error('Gmail MCP server running on stdio');
+	void auth.start().catch(() => {
+		console.error('gmail-mcp: Google authorization failed. Restart the server to try again.');
+	});
+}
+
 const transport = process.env.MCP_TRANSPORT || 'stdio';
 
 (async () => {
@@ -58,33 +102,19 @@ const transport = process.env.MCP_TRANSPORT || 'stdio';
 
 	const scopes = destructive ? DESTRUCTIVE_SCOPES : READ_ONLY_SCOPES;
 	console.error(destructive ? 'gmail-mcp: destructive mode' : 'gmail-mcp: read-only mode');
+	if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
+		console.error('gmail-mcp: GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required');
+		process.exit(1);
+	}
+
 	if (transport === 'stdio') {
-		const accessToken = process.env.GOOGLE_ACCESS_TOKEN;
-		if (!accessToken) {
-			console.error('gmail-mcp: GOOGLE_ACCESS_TOKEN required for stdio transport');
-			console.error('For OAuth support, use HTTP transport: MCP_TRANSPORT=http');
-
-			process.exit(1);
-		}
-
-		const server = createServer({token: accessToken, destructive});
-		setupSignalHandlers(async () => server.close());
-
-		const stdioTransport = new StdioServerTransport();
-		await server.connect(stdioTransport);
-		console.error('Gmail MCP server running on stdio');
+		await startStdioServer(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, scopes, destructive);
 	} else if (transport === 'http') {
-		if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
-			console.error('gmail-mcp: GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET required for HTTP transport');
-
-			process.exit(1);
-		}
-
 		const app = express();
 		app.use(express.json({limit: '20mb'}));
 		app.use(express.urlencoded({extended: true}));
 
-		const port = parseInt(process.env.PORT || '3000', 10);
+		const port = Number(process.env.PORT || DEFAULT_PORT);
 		const baseUrl = process.env.MCP_BASE_URL || `http://localhost:${port}`;
 
 		registerOAuthRoutes(app, {
@@ -119,7 +149,7 @@ const transport = process.env.MCP_TRANSPORT || 'stdio';
 				return;
 			}
 
-			const server = createServer({token: token ?? '', destructive});
+			const server = createServer({getAccessToken: async () => token ?? '', destructive});
 
 			try {
 				const httpTransport = new StreamableHTTPServerTransport({
@@ -163,4 +193,7 @@ const transport = process.env.MCP_TRANSPORT || 'stdio';
 
 		process.exit(1);
 	}
-})();
+})().catch(() => {
+	console.error('gmail-mcp: Startup failed');
+	process.exit(1);
+});

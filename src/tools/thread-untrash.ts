@@ -29,7 +29,7 @@ export function registerThreadUntrash(server: McpServer, config: Config): void {
 			},
 		},
 		async ({threadId}) => {
-			const result = await makeGmailApiCall('POST', `/users/me/threads/${threadId}/untrash`, config.token);
+			const result = await makeGmailApiCall('POST', `/users/me/threads/${threadId}/untrash`, await config.getAccessToken());
 			return jsonResult(outputSchema.parse(result));
 		},
 	);

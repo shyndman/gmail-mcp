@@ -41,7 +41,7 @@ export function registerLabelUpdate(server: McpServer, config: Config): void {
 			},
 		},
 		async ({labelId, name, labelListVisibility, messageListVisibility, backgroundColor, textColor}) => {
-			const result = await makeGmailApiCall('PUT', `/users/me/labels/${labelId}`, config.token, {
+			const result = await makeGmailApiCall('PUT', `/users/me/labels/${labelId}`, await config.getAccessToken(), {
 				id: labelId,
 				name,
 				labelListVisibility,

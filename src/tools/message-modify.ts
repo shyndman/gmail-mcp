@@ -41,7 +41,7 @@ export function registerMessageModify(server: McpServer, config: Config): void {
 				requestBody.removeLabelIds = removeLabelIds;
 			}
 
-			const result = await makeGmailApiCall('POST', `/users/me/messages/${id}/modify`, config.token, requestBody);
+			const result = await makeGmailApiCall('POST', `/users/me/messages/${id}/modify`, await config.getAccessToken(), requestBody);
 			return jsonResult(outputSchema.parse(result));
 		},
 	);

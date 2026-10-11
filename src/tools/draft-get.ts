@@ -36,7 +36,7 @@ export function registerDraftGet(server: McpServer, config: Config): void {
 		},
 		async ({draftId, format}) => {
 			const params = new URLSearchParams({format});
-			const result = await makeGmailApiCall('GET', `/users/me/drafts/${draftId}?${params.toString()}`, config.token);
+			const result = await makeGmailApiCall('GET', `/users/me/drafts/${draftId}?${params.toString()}`, await config.getAccessToken());
 			return jsonResult(outputSchema.parse(result));
 		},
 	);

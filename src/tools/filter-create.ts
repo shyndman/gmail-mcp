@@ -57,7 +57,7 @@ export function registerFilterCreate(server: McpServer, config: Config): void {
 			},
 		},
 		async ({from, to, subject, query, negatedQuery, hasAttachment, excludeChats, size, sizeComparison, addLabelIds, removeLabelIds, forward}) => {
-			const result = await makeGmailApiCall('POST', '/users/me/settings/filters', config.token, {
+			const result = await makeGmailApiCall('POST', '/users/me/settings/filters', await config.getAccessToken(), {
 				criteria: {
 					from,
 					to,

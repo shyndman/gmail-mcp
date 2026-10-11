@@ -29,7 +29,7 @@ export function registerLabelDelete(server: McpServer, config: Config): void {
 			},
 		},
 		async ({labelId}) => {
-			await makeGmailApiCall('DELETE', `/users/me/labels/${labelId}`, config.token);
+			await makeGmailApiCall('DELETE', `/users/me/labels/${labelId}`, await config.getAccessToken());
 			return jsonResult({success: true as const, labelId});
 		},
 	);

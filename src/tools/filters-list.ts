@@ -42,7 +42,7 @@ export function registerFiltersList(server: McpServer, config: Config): void {
 			},
 		},
 		async () => {
-			const result = await makeGmailApiCall('GET', '/users/me/settings/filters', config.token);
+			const result = await makeGmailApiCall('GET', '/users/me/settings/filters', await config.getAccessToken());
 			return jsonResult(outputSchema.parse(result));
 		},
 	);

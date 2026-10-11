@@ -29,7 +29,7 @@ export function registerFilterDelete(server: McpServer, config: Config): void {
 			},
 		},
 		async ({filterId}) => {
-			await makeGmailApiCall('DELETE', `/users/me/settings/filters/${filterId}`, config.token);
+			await makeGmailApiCall('DELETE', `/users/me/settings/filters/${filterId}`, await config.getAccessToken());
 			return jsonResult({success: true as const, filterId});
 		},
 	);

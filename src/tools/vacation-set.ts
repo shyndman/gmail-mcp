@@ -42,7 +42,7 @@ export function registerVacationSet(server: McpServer, config: Config): void {
 			},
 		},
 		async ({enableAutoReply, responseSubject, responseBodyPlainText, responseBodyHtml, restrictToContacts, restrictToDomain, startTime, endTime}) => {
-			const result = await makeGmailApiCall('PUT', '/users/me/settings/vacation', config.token, {
+			const result = await makeGmailApiCall('PUT', '/users/me/settings/vacation', await config.getAccessToken(), {
 				enableAutoReply,
 				responseSubject,
 				responseBodyPlainText,

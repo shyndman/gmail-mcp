@@ -73,14 +73,14 @@ export function registerDraftUpdate(server: McpServer, config: Config): void {
 			// scratch: without an explicit message.threadId the draft is moved into
 			// a brand new thread of its own, silently detaching reply drafts from
 			// their conversation. Carry the draft's current thread over by default.
-			const resolvedThreadId = threadId ?? await getDraftThreadId(draftId, config.token);
+			const resolvedThreadId = threadId ?? await getDraftThreadId(draftId, await config.getAccessToken());
 
 			const message: {raw: string; threadId?: string} = {raw: encodedEmail};
 			if (resolvedThreadId) {
 				message.threadId = resolvedThreadId;
 			}
 
-			const result = await makeGmailApiCall('PUT', `/users/me/drafts/${draftId}`, config.token, {message});
+			const result = await makeGmailApiCall('PUT', `/users/me/drafts/${draftId}`, await config.getAccessToken(), {message});
 			return jsonResult(outputSchema.parse(result));
 		},
 	);

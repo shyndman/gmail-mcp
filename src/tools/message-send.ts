@@ -102,7 +102,7 @@ export function registerMessageSend(server: McpServer, config: Config): void {
 				requestBody.threadId = threadId;
 			}
 
-			const result = await makeGmailApiCall('POST', '/users/me/messages/send', config.token, requestBody);
+			const result = await makeGmailApiCall('POST', '/users/me/messages/send', await config.getAccessToken(), requestBody);
 			return jsonResult(outputSchema.parse(result));
 		},
 	);

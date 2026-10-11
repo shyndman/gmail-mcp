@@ -337,7 +337,7 @@ export function registerMessageForward(server: McpServer, config: Config): void 
 		},
 		async ({id, to, body: userMessage, from}) => {
 			// Fetch the original message
-			const original = await makeGmailApiCall('GET', `/users/me/messages/${id}?format=full`, config.token);
+			const original = await makeGmailApiCall('GET', `/users/me/messages/${id}?format=full`, await config.getAccessToken());
 			const parsed = messageSchema.parse(original);
 
 			// Extract headers from original
@@ -361,7 +361,7 @@ export function registerMessageForward(server: McpServer, config: Config): void 
 					const resp = await makeGmailApiCall(
 						'GET',
 						`/users/me/messages/${id}/attachments/${att.attachmentId}`,
-						config.token,
+						await config.getAccessToken(),
 					);
 					const data = z.object({data: z.string()}).parse(resp);
 
@@ -375,7 +375,7 @@ export function registerMessageForward(server: McpServer, config: Config): void 
 					const resp = await makeGmailApiCall(
 						'GET',
 						`/users/me/messages/${id}/attachments/${img.attachmentId}`,
-						config.token,
+						await config.getAccessToken(),
 					);
 					const data = z.object({data: z.string()}).parse(resp);
 
@@ -436,7 +436,7 @@ To: ${originalTo}${originalCc ? `<br>Cc: ${originalCc}` : ''}</p>
 			});
 
 			// Send with threadId to keep in same thread
-			const result = await makeGmailApiCall('POST', '/users/me/messages/send', config.token, {
+			const result = await makeGmailApiCall('POST', '/users/me/messages/send', await config.getAccessToken(), {
 				raw,
 				threadId: parsed.threadId,
 			});

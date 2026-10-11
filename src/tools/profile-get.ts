@@ -25,7 +25,7 @@ export function registerProfileGet(server: McpServer, config: Config): void {
 			},
 		},
 		async () => {
-			const result = await makeGmailApiCall('GET', '/users/me/profile', config.token);
+			const result = await makeGmailApiCall('GET', '/users/me/profile', await config.getAccessToken());
 			return jsonResult(outputSchema.parse(result));
 		},
 	);

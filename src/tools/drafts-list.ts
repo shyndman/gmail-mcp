@@ -54,7 +54,7 @@ export function registerDraftsList(server: McpServer, config: Config): void {
 				params.set('includeSpamTrash', 'true');
 			}
 
-			const result = await makeGmailApiCall('GET', `/users/me/drafts?${params.toString()}`, config.token);
+			const result = await makeGmailApiCall('GET', `/users/me/drafts?${params.toString()}`, await config.getAccessToken());
 			return jsonResult(outputSchema.parse(result));
 		},
 	);

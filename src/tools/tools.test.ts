@@ -5,12 +5,6 @@ import {Client} from '@modelcontextprotocol/sdk/client/index.js';
 import {InMemoryTransport} from '@modelcontextprotocol/sdk/inMemory.js';
 import type {McpServer} from '@modelcontextprotocol/sdk/server/mcp.js';
 import {createServer} from '../index.js';
-import {makeGmailApiCall} from '../utils/gmail-api.js';
-
-vi.mock('../utils/gmail-api.js', () => ({
-	makeGmailApiCall: vi.fn(),
-	GMAIL_API_BASE_URL: 'https://gmail.googleapis.com/gmail/v1',
-}));
 
 const readTools = [
 	'get_profile',
@@ -54,14 +48,15 @@ const writeTools = [
 	'vacation_set',
 ];
 
-const apiCall = vi.mocked(makeGmailApiCall);
+const fetchMock = vi.fn<typeof fetch>();
 
 describe('MCP tool access', () => {
 	let server: McpServer | undefined;
 	let client: Client | undefined;
 
 	beforeEach(() => {
-		apiCall.mockReset();
+		fetchMock.mockReset();
+		vi.stubGlobal('fetch', fetchMock);
 	});
 
 	afterEach(async () => {
@@ -71,11 +66,15 @@ describe('MCP tool access', () => {
 			await server?.close();
 			client = undefined;
 			server = undefined;
+			vi.unstubAllGlobals();
 		}
 	});
 
-	const connect = async (destructive: boolean): Promise<Client> => {
-		server = createServer({token: 'test-token', destructive});
+	const connect = async (
+		destructive: boolean,
+		getAccessToken: () => Promise<string> = async () => 'test-token',
+	): Promise<Client> => {
+		server = createServer({getAccessToken, destructive});
 		client = new Client({name: 'tool-access-test', version: '1.0.0'});
 		const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
 		await server.connect(serverTransport);
@@ -96,13 +95,43 @@ describe('MCP tool access', () => {
 			]));
 		}));
 
-		expect(apiCall).not.toHaveBeenCalled();
+		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
 	it('exposes exactly all 36 tools in destructive mode', async () => {
 		const connectedClient = await connect(true);
 		const {tools} = await connectedClient.listTools();
 		expect(tools.map(({name}) => name).sort()).toEqual([...readTools, ...writeTools].sort());
-		expect(apiCall).not.toHaveBeenCalled();
+		expect(fetchMock).not.toHaveBeenCalled();
+	});
+
+	it('resolves a refreshed token for each get_profile call', async () => {
+		const getAccessToken = vi.fn<() => Promise<string>>()
+			.mockResolvedValueOnce('initial-token')
+			.mockResolvedValueOnce('refreshed-token');
+		fetchMock.mockImplementation(async () => new Response(
+			JSON.stringify({emailAddress: 'test@example.com', messagesTotal: 2}),
+			{headers: {'Content-Type': 'application/json'}},
+		));
+		const connectedClient = await connect(false, getAccessToken);
+
+		const initialResult = await connectedClient.callTool({name: 'get_profile', arguments: {}});
+		expect(initialResult.isError).not.toBe(true);
+		expect(initialResult.structuredContent).toEqual({emailAddress: 'test@example.com', messagesTotal: 2});
+
+		const refreshedResult = await connectedClient.callTool({name: 'get_profile', arguments: {}});
+		expect(refreshedResult.isError).not.toBe(true);
+		expect(refreshedResult.structuredContent).toEqual({emailAddress: 'test@example.com', messagesTotal: 2});
+
+		expect(getAccessToken).toHaveBeenCalledTimes(2);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
+		expect(fetchMock.mock.calls.map(([url, options]) => ({
+			url,
+			method: options?.method,
+			authorization: new Headers(options?.headers).get('Authorization'),
+		}))).toEqual([
+			{url: 'https://gmail.googleapis.com/gmail/v1/users/me/profile', method: 'GET', authorization: 'Bearer initial-token'},
+			{url: 'https://gmail.googleapis.com/gmail/v1/users/me/profile', method: 'GET', authorization: 'Bearer refreshed-token'},
+		]);
 	});
 });

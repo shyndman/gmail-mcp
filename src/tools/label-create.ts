@@ -40,7 +40,7 @@ export function registerLabelCreate(server: McpServer, config: Config): void {
 			},
 		},
 		async ({name, labelListVisibility, messageListVisibility, backgroundColor, textColor}) => {
-			const result = await makeGmailApiCall('POST', '/users/me/labels', config.token, {
+			const result = await makeGmailApiCall('POST', '/users/me/labels', await config.getAccessToken(), {
 				name,
 				labelListVisibility,
 				messageListVisibility,

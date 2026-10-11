@@ -29,7 +29,7 @@ export function registerVacationGet(server: McpServer, config: Config): void {
 			},
 		},
 		async () => {
-			const result = await makeGmailApiCall('GET', '/users/me/settings/vacation', config.token);
+			const result = await makeGmailApiCall('GET', '/users/me/settings/vacation', await config.getAccessToken());
 			return jsonResult(outputSchema.parse(result));
 		},
 	);

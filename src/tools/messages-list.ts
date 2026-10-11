@@ -58,7 +58,7 @@ export function registerMessagesList(server: McpServer, config: Config): void {
 				params.set('includeSpamTrash', 'true');
 			}
 
-			const result = await makeGmailApiCall('GET', `/users/me/messages?${params.toString()}`, config.token);
+			const result = await makeGmailApiCall('GET', `/users/me/messages?${params.toString()}`, await config.getAccessToken());
 			return jsonResult(outputSchema.parse(result));
 		},
 	);

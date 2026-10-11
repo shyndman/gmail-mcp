@@ -59,7 +59,7 @@ export function registerThreadsList(server: McpServer, config: Config): void {
 				params.set('includeSpamTrash', 'true');
 			}
 
-			const result = await makeGmailApiCall('GET', `/users/me/threads?${params.toString()}`, config.token);
+			const result = await makeGmailApiCall('GET', `/users/me/threads?${params.toString()}`, await config.getAccessToken());
 			return jsonResult(outputSchema.parse(result));
 		},
 	);
