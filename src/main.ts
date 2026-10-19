@@ -10,9 +10,10 @@ import {registerOAuthRoutes} from './utils/oauth.js';
 import {OAuth2Client} from 'google-auth-library';
 import open from 'open';
 import {StdioOAuth, getStdioCredentialsPath} from './utils/stdio-oauth.js';
+import {resolve} from 'node:path';
+import {createGoogleCredentialsLoader} from './utils/google-credentials.js';
 
-// Google OAuth configuration - users must provide their own credentials
-const {GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET} = process.env;
+const getGoogleCredentials = createGoogleCredentialsLoader(resolve(__dirname, '../.env'), process.env);
 
 const READ_ONLY_SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'];
 const DESTRUCTIVE_SCOPES = [
@@ -44,29 +45,40 @@ function extractBearerToken(req: Request): string | undefined {
 }
 
 async function startStdioServer(
-	clientId: string,
-	clientSecret: string,
 	scopes: string[],
 	destructive: boolean,
 ): Promise<void> {
-	const callbackPort = Number(process.env.PORT || DEFAULT_PORT);
-	const client = new OAuth2Client({
-		clientId,
-		clientSecret,
-		redirectUri: `http://localhost:${callbackPort}/callback`,
-	});
-	const auth = new StdioOAuth({
-		client,
-		callbackPort,
-		scopes,
-		credentialsPath: getStdioCredentialsPath(clientId, scopes),
-		async openBrowser(url) {
-			await open(url);
+	let auth: StdioOAuth | undefined;
+	const server = createServer({
+		async getAccessToken() {
+			if (!auth) {
+				const {clientId, clientSecret} = getGoogleCredentials();
+				const callbackPort = Number(process.env.PORT || DEFAULT_PORT);
+				const client = new OAuth2Client({
+					clientId,
+					clientSecret,
+					redirectUri: `http://localhost:${callbackPort}/callback`,
+				});
+				auth = new StdioOAuth({
+					client,
+					callbackPort,
+					scopes,
+					credentialsPath: getStdioCredentialsPath(clientId, scopes),
+					async openBrowser(url) {
+						await open(url);
+					},
+				});
+				void auth.start().catch(() => {
+					console.error('gmail-mcp: Google authorization failed. Restart the server to try again.');
+				});
+			}
+
+			return auth.getAccessToken();
 		},
+		destructive,
 	});
-	const server = createServer({getAccessToken: async () => auth.getAccessToken(), destructive});
 	const cleanup = async (): Promise<void> => {
-		await auth.close();
+		await auth?.close();
 		await server.close();
 	};
 
@@ -78,9 +90,6 @@ async function startStdioServer(
 	});
 	await server.connect(new StdioServerTransport());
 	console.error('Gmail MCP server running on stdio');
-	void auth.start().catch(() => {
-		console.error('gmail-mcp: Google authorization failed. Restart the server to try again.');
-	});
 }
 
 const transport = process.env.MCP_TRANSPORT || 'stdio';
@@ -102,13 +111,9 @@ const transport = process.env.MCP_TRANSPORT || 'stdio';
 
 	const scopes = destructive ? DESTRUCTIVE_SCOPES : READ_ONLY_SCOPES;
 	console.error(destructive ? 'gmail-mcp: destructive mode' : 'gmail-mcp: read-only mode');
-	if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
-		console.error('gmail-mcp: GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET are required');
-		process.exit(1);
-	}
 
 	if (transport === 'stdio') {
-		await startStdioServer(GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, scopes, destructive);
+		await startStdioServer(scopes, destructive);
 	} else if (transport === 'http') {
 		const app = express();
 		app.use(express.json({limit: '20mb'}));
@@ -119,8 +124,12 @@ const transport = process.env.MCP_TRANSPORT || 'stdio';
 
 		registerOAuthRoutes(app, {
 			baseUrl,
-			googleClientId: GOOGLE_CLIENT_ID,
-			googleClientSecret: GOOGLE_CLIENT_SECRET,
+			get googleClientId() {
+				return getGoogleCredentials().clientId;
+			},
+			get googleClientSecret() {
+				return getGoogleCredentials().clientSecret;
+			},
 			scopes,
 		});
 

@@ -34,10 +34,19 @@ MCP server for Gmail - read, send, archive, and manage emails.
 ### 2. Configure a stdio client
 
 Use Node.js 22 or later. Install dependencies with `npm ci`, then build with `npm run build`.
-The MCP client starts this server. Supply `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` through its environment.
-The server does not load `.env` files itself.
+The MCP client starts this server. Put `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in the checkout's `.env`:
 
-For OMP, put the credentials in `~/.omp/agent/.env`. OMP loads that file and passes its environment to stdio servers.
+```dotenv
+GOOGLE_CLIENT_ID=your-client-id
+GOOGLE_CLIENT_SECRET=your-client-secret
+```
+
+The server uses `dotenv` to read that file once, when a tool first needs Google credentials.
+Startup and tool discovery do not read the file or start browser authorization.
+Existing environment values take precedence. The server does not execute shell expressions.
+The file can be a FIFO. The first credential read waits for its writer to close the stream.
+The server does not change the file. Restart the server to load changed credentials.
+
 Add this entry to `~/.omp/agent/mcp.json`, with the absolute path to your checkout:
 
 ```json
@@ -86,6 +95,9 @@ The HTTP listener binds only to `127.0.0.1`. Its default advertised URL is `http
 `PORT` changes its port. `MCP_BASE_URL` sets the advertised base URL for an HTTPS reverse proxy.
 The listener still binds only to loopback.
 Add `--destructive` to enable write tools. Disabled tools remain unavailable even with a broad existing token.
+
+HTTP loads the same `.env` once, when an OAuth request first needs Google credentials.
+OAuth metadata and tool discovery do not read the file.
 
 ## Architecture
 
