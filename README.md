@@ -64,17 +64,18 @@ Add this entry to `~/.omp/agent/mcp.json`, with the absolute path to your checko
 
 On first use, the server opens the browser and a temporary OAuth callback listener on `127.0.0.1:3000`.
 The callback URL is `http://localhost:3000/callback`. `PORT` changes the callback port and must match the Google registration.
-MCP initialization and tool discovery do not wait for login. Until login completes, tool calls return an authorization-pending error.
+MCP initialization and tool discovery remain available during login. Credential-dependent tool calls wait for browser authorization, then continue automatically.
 If the browser does not open, use the authorization URL from the server's stderr output.
-The callback listener closes after authorization, failure, or the ten-minute timeout.
+The callback listener closes after authorization, failure, or the ten-minute timeout. Waiting tool calls receive an error if authorization fails, times out, or the server shuts down.
 If authorization fails, fix the reported cause and restart the server through your MCP client.
 Shutdown and the login timeout also abort pending Google token requests.
 
 The server saves only the refresh token under `$XDG_DATA_HOME/gmail-mcp/oauth`, or `~/.local/share/gmail-mcp/oauth` by default.
 The directory uses permissions `0700`, and each credential file uses `0600`.
 Each Google client and scope set has a separate file. The cache works across projects.
-On restart, the server uses the saved refresh token without opening the browser or callback listener.
-It refreshes expired access tokens before Gmail requests. A revoked refresh token starts a new browser login.
+On the first credential-dependent call after restart, the server uses the saved refresh token without opening the browser or callback listener.
+That call waits for the saved-credential read and any required browser login.
+It refreshes expired access tokens before Gmail requests. A revoked refresh token starts a new browser login; waiting tool calls continue automatically after authorization.
 
 The server defaults to read-only mode and exposes 13 read tools.
 Add `--destructive` to the client's `args` to enable all 36 tools, including every send and write operation.

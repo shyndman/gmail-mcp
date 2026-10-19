@@ -6,6 +6,7 @@ import {createServer, type Server} from 'node:http';
 import {connect} from 'node:net';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {setImmediate} from 'node:timers/promises';
 import {OAuth2Client} from 'google-auth-library';
 import {
 	afterEach, beforeEach, describe, expect, it, vi, type MockInstance,
@@ -126,7 +127,7 @@ describe('stdio OAuth lifecycle', () => {
 		vi.restoreAllMocks();
 	});
 
-	it('starts once, fails pending calls immediately, validates state and exchanges library PKCE', async () => {
+	it('starts once, waits for authorization, validates state and exchanges library PKCE', async () => {
 		let browserCalls = 0;
 		browser = async (url) => {
 			browserCalls += 1;
@@ -135,8 +136,10 @@ describe('stdio OAuth lifecycle', () => {
 
 		const started = auth.start();
 		const secondStart = auth.start();
-		await expect(auth.getAccessToken()).rejects.toThrow('authorization pending');
+		const token = auth.getAccessToken();
+		const waiting = token.then(() => 'settled', () => 'settled');
 		const url = await opened.promise;
+		expect(await Promise.race([waiting, setImmediate('waiting')])).toBe('waiting');
 		const params = new URL(url).searchParams;
 		expect(params.get('scope')).toBe('scope-read');
 		expect(params.get('access_type')).toBe('offline');
@@ -150,7 +153,7 @@ describe('stdio OAuth lifecycle', () => {
 		expect(browserCalls).toBe(1);
 		expect(requests).toHaveLength(1);
 		expect(createHash('sha256').update(requests[0]!.get('code_verifier')!).digest('base64url')).toBe(params.get('code_challenge'));
-		expect(await auth.getAccessToken()).toBe('access-one');
+		expect(await token).toBe('access-one');
 		expect(JSON.parse(await readFile(join(directory, 'credentials.json'), 'utf8'))).toEqual({refreshToken: 'refresh-one'});
 		expect((await stat(directory)).mode % 0o1000).toBe(0o700);
 		expect((await stat(join(directory, 'credentials.json'))).mode % 0o1000).toBe(0o600);
@@ -170,9 +173,11 @@ describe('stdio OAuth lifecycle', () => {
 	it('consumes denial and closes the listener', async () => {
 		const started = auth.start();
 		const rejected = expect(started).rejects.toThrow('denied');
+		const tokenRejected = expect(auth.getAccessToken()).rejects.toThrow('denied');
 		const url = await opened.promise;
 		expect((await callback(url, {error: 'access_denied'})).status).toBe(400);
 		await rejected;
+		await tokenRejected;
 		expect(requests).toHaveLength(0);
 		await expect(callback(url)).rejects.toThrow();
 	});
@@ -189,8 +194,7 @@ describe('stdio OAuth lifecycle', () => {
 
 	it('loads cached credentials without opening a browser or callback listener and shares refreshes', async () => {
 		await writeFile(join(directory, 'credentials.json'), JSON.stringify({refreshToken: 'saved-refresh'}));
-		await auth.start();
-		await expect(fetch(`http://127.0.0.1:${port}/callback`)).rejects.toThrow();
+		const started = auth.start();
 		const gate = deferred<void>();
 		reply = async () => {
 			await gate.promise;
@@ -200,6 +204,8 @@ describe('stdio OAuth lifecycle', () => {
 		const calls = [auth.getAccessToken(), auth.getAccessToken(), auth.getAccessToken()];
 		gate.resolve();
 		expect(await Promise.all(calls)).toEqual(['refreshed', 'refreshed', 'refreshed']);
+		await started;
+		await expect(fetch(`http://127.0.0.1:${port}/callback`)).rejects.toThrow();
 		expect(requests).toHaveLength(1);
 		expect(requests[0]!.get('grant_type')).toBe('refresh_token');
 		client.credentials.expiry_date = Date.now() + 1000;
@@ -237,17 +243,19 @@ describe('stdio OAuth lifecycle', () => {
 		await expect(auth.getAccessToken()).rejects.toThrow('restart');
 	});
 
-	it('reauthorizes revoked refresh credentials once without blocking tool calls', async () => {
+	it('waits for revoked credentials to be reauthorized once and resumes concurrent calls', async () => {
 		await writeFile(join(directory, 'credentials.json'), '{"refreshToken":"revoked"}');
 		await auth.start();
 		reply = async () => ({status: 400, data: {error: 'invalid_grant', error_description: 'secret'}});
-		await expect(auth.getAccessToken()).rejects.toThrow('authorization pending');
+		const first = auth.getAccessToken();
+		const waiting = first.then(() => 'settled', () => 'settled');
 		const url = await opened.promise;
-		await expect(auth.getAccessToken()).rejects.toThrow('authorization pending');
+		const second = auth.getAccessToken();
+		expect(await Promise.race([waiting, setImmediate('waiting')])).toBe('waiting');
 		await expect(readFile(join(directory, 'credentials.json'))).rejects.toMatchObject({code: 'ENOENT'});
 		reply = async () => ({status: 200, data: {access_token: 'new-access', refresh_token: 'new-refresh', expires_in: 3600}});
 		expect((await callback(url)).status).toBe(200);
-		expect(await auth.getAccessToken()).toBe('new-access');
+		expect(await Promise.all([first, second])).toEqual(['new-access', 'new-access']);
 		expect(logs.mock.calls.flat().join(' ')).not.toContain('secret');
 	});
 
@@ -274,18 +282,22 @@ describe('stdio OAuth lifecycle', () => {
 		}) as typeof setTimeout);
 		const started = auth.start();
 		const rejected = expect(started).rejects.toThrow('timed out');
+		const tokenRejected = expect(auth.getAccessToken()).rejects.toThrow('timed out');
 		const url = await opened.promise;
 		expire();
 		await rejected;
+		await tokenRejected;
 		await expect(callback(url)).rejects.toThrow();
 	});
 
 	it('closes during pending browser login', async () => {
 		const started = auth.start();
 		const rejected = expect(started).rejects.toThrow('cancelled');
+		const tokenRejected = expect(auth.getAccessToken()).rejects.toThrow('cancelled');
 		const url = await opened.promise;
 		await auth.close();
 		await rejected;
+		await tokenRejected;
 		await expect(callback(url)).rejects.toThrow();
 	});
 

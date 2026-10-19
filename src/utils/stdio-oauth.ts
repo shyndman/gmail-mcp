@@ -21,7 +21,6 @@ export type StdioOAuthConfig = {
 const credentialSchema = z.object({refreshToken: z.string().min(1)}).strict();
 const callbackSchema = z.object({state: z.string().min(1), code: z.string().min(1).optional(), error: z.string().min(1).optional()});
 const LOGIN_TIMEOUT_MS = 10 * 60 * 1000;
-const pending = () => new Error('Gmail authorization pending. Complete browser authorization and try again.');
 const log = (category: string) => {
 	console.error(`gmail-mcp: ${category}`);
 };
@@ -86,14 +85,20 @@ export class StdioOAuth {
 	}
 
 	async getAccessToken(): Promise<string> {
+		if (this.failure) {
+			throw this.failure;
+		}
+
+		await this.start();
+		await this.reauthorizing;
 		if (!this.ready || this.closed) {
-			throw this.failure ?? pending();
+			throw this.failure ?? new Error('Gmail authorization is unavailable.');
 		}
 
 		try {
 			const result = await this.config.client.getAccessToken();
 			if (this.closed || !this.ready) {
-				throw pending();
+				throw this.failure ?? new Error('Gmail authorization is unavailable.');
 			}
 
 			if (!result.token) {
@@ -106,11 +111,12 @@ export class StdioOAuth {
 				log('Saved Gmail authorization was revoked. Browser authorization is required.');
 				this.ready = false;
 				this.reauthorizing ??= this.reauthorize();
-				void this.reauthorizing.catch(() => {
+				await this.reauthorizing.catch(() => {
 					this.failure = new Error('Gmail reauthorization failed. Check the startup error and restart the server.');
 					log('Browser reauthorization failed.');
+					throw this.failure;
 				});
-				throw pending();
+				return this.getAccessToken();
 			}
 
 			log('Unable to refresh Gmail access credentials.');
@@ -132,12 +138,18 @@ export class StdioOAuth {
 	}
 
 	private async initialize(): Promise<void> {
+		if (!await this.loadCredentials()) {
+			await this.login();
+		}
+	}
+
+	private async loadCredentials(): Promise<boolean> {
 		let content: string;
 		try {
 			content = await readFile(this.config.credentialsPath, 'utf8');
 		} catch (error) {
 			if (hasErrorCode(error, 'ENOENT')) {
-				return this.login();
+				return false;
 			}
 
 			log('Unable to read saved OAuth credentials.');
@@ -162,6 +174,7 @@ export class StdioOAuth {
 
 		this.config.client.setCredentials({refresh_token: parsed.data.refreshToken});
 		this.ready = true;
+		return true;
 	}
 
 	private async reauthorize(): Promise<void> {
@@ -321,6 +334,7 @@ export class StdioOAuth {
 
 			this.config.client.setCredentials(tokens);
 			this.ready = true;
+			log('Gmail authorization complete. Resuming waiting tool calls.');
 			await new Promise<void>((resolve) => {
 				response.once('close', resolve);
 				respond(response, 200, 'Gmail authorization complete. You may close this window.', resolve);
